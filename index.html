@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reto 3 — API Dashboard</title>
+  <style>
+    /* ── Variables ─────────────────────────────────────────────────── */
+    :root {
+      --primary:   #6c47ff;
+      --primary-light: #ede9ff;
+      --danger:    #ef4444;
+      --success:   #22c55e;
+      --warning:   #f59e0b;
+      --bg:        #f5f4ff;
+      --surface:   #ffffff;
+      --border:    #e2e0f0;
+      --text:      #1a1a2e;
+      --muted:     #6b6b8a;
+      --shadow:    0 4px 24px rgba(108,71,255,.08);
+      --radius:    14px;
+    }
+
+    /* ── Reset ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ────────────────────────────────────────────────────── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 2px 12px rgba(108,71,255,.4);
+    }
+    header .logo { font-size: 1.8rem; }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    header p  { font-size: .85rem; opacity: .85; margin-top: .15rem; }
+    .health-badge {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      font-size: .8rem;
+      background: rgba(255,255,255,.2);
+      padding: .3rem .75rem;
+      border-radius: 999px;
+    }
+    .health-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+      animation: pulse 2s infinite;
+    }
+    .health-dot.ok  { background: var(--success); }
+    .health-dot.err { background: var(--danger); animation: none; }
+    @keyframes pulse {
+      0%,100% { opacity:1; } 50% { opacity:.4; }
+    }
+
+    /* ── Layout ────────────────────────────────────────────────────── */
+    main { max-width: 1100px; margin: 2rem auto; padding: 0 1.25rem 3rem; }
+
+    /* ── Tabs ───────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: .5rem;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 1.75rem;
+    }
+    .tab-btn {
+      padding: .65rem 1.4rem;
+      font-size: .95rem;
+      font-weight: 600;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      transition: all .2s;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .tab-btn:hover  { color: var(--primary); background: var(--primary-light); }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Toolbar ────────────────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .75rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+    }
+    .search-wrap svg {
+      position: absolute;
+      left: .85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+    input[type="search"], input[type="text"], input[type="email"],
+    input[type="number"], select, textarea {
+      width: 100%;
+      padding: .6rem .9rem;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: .9rem;
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color .2s;
+    }
+    .search-wrap input { padding-left: 2.4rem; }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    /* ── Buttons ────────────────────────────────────────────────────── */
+    .btn {
+      padding: .6rem 1.2rem;
+      border: none;
+      border-radius: 8px;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      white-space: nowrap;
+    }
+    .btn-primary  { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: #5538e0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(108,71,255,.3); }
+    .btn-danger   { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-ghost    { background: transparent; color: var(--muted); border: 1.5px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--primary); color: var(--primary); }
+    .btn-sm { padding: .35rem .7rem; font-size: .8rem; }
+
+    /* ── Cards (Productos) ──────────────────────────────────────────── */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1.5px solid var(--border);
+      overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(108,71,255,.13); }
+    .card-header {
+      background: var(--primary-light);
+      padding: .85rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: .5rem;
+    }
+    .card-title { font-weight: 700; font-size: 1rem; color: var(--primary); }
+    .card-body  { padding: 1rem; }
+    .card-desc  { font-size: .85rem; color: var(--muted); margin-bottom: .75rem; min-height: 2.2rem; }
+    .card-meta  { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
+    .badge {
+      font-size: .75rem;
+      padding: .2rem .6rem;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .badge-price { background: #ecfdf5; color: #15803d; }
+    .badge-stock { background: #eff6ff; color: #1d4ed8; }
+    .badge-role  { background: var(--primary-light); color: var(--primary); }
+    .badge-id    { background: #f1f5f9; color: #475569; }
+    .card-footer {
+      padding: .6rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-owner { font-size: .78rem; color: var(--muted); }
+
+    /* ── Table (Usuarios) ───────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1.5px solid var(--border);
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: var(--primary-light); }
+    th {
+      text-align: left;
+      padding: .85rem 1rem;
+      font-size: .8rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    td {
+      padding: .8rem 1rem;
+      font-size: .88rem;
+      border-top: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:hover td { background: #fafafe; }
+    .td-name { font-weight: 600; }
+    .td-email { color: var(--muted); font-size: .83rem; }
+    .td-date { color: var(--muted); font-size: .8rem; white-space: nowrap; }
+    .actions { display: flex; gap: .4rem; }
+
+    /* ── Estado vacío / loading / error ─────────────────────────────── */
+    .state-box {
+      text-align: center;
+      padding: 3.5rem 1rem;
+      color: var(--muted);
+    }
+    .state-box .icon { font-size: 3rem; margin-bottom: .75rem; }
+    .state-box h3 { font-size: 1.1rem; margin-bottom: .4rem; color: var(--text); }
+    .state-box p  { font-size: .88rem; }
+    .spinner {
+      display: inline-block;
+      width: 40px; height: 40px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-box {
+      background: #fef2f2;
+      border: 1.5px solid #fecaca;
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      color: var(--danger);
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      font-size: .9rem;
+    }
+
+    /* ── Modal ──────────────────────────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,46,.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      backdrop-filter: blur(3px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: 0 20px 60px rgba(108,71,255,.2);
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h2 { font-size: 1.1rem; }
+    .modal-close {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.4rem; color: var(--muted);
+      line-height: 1; padding: .2rem;
+    }
+    .modal-close:hover { color: var(--danger); }
+    .modal-body { padding: 1.5rem; }
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: .75rem;
+    }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label {
+      display: block;
+      font-size: .83rem;
+      font-weight: 600;
+      margin-bottom: .35rem;
+      color: var(--muted);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+
+    /* ── Toast ──────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem; right: 1.5rem;
+      background: var(--text);
+      color: #fff;
+      padding: .75rem 1.25rem;
+      border-radius: 10px;
+      font-size: .88rem;
+      z-index: 200;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all .3s;
+      max-width: 300px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { background: var(--success); }
+    #toast.error   { background: var(--danger); }
+
+    /* ── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { flex-wrap: wrap; gap: .5rem; }
+      .health-badge { margin-left: 0; }
+      .form-row { grid-template-columns: 1fr; }
+      .cards-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <span class="logo">🛍️</span>
+  <div>
+    <h1>API Dashboard</h1>
+    <p>Reto 3 — Microservicio de Usuarios &amp; Productos</p>
+  </div>
+  <div class="health-badge" id="healthBadge">
+    <span class="health-dot" id="healthDot"></span>
+    <span id="healthText">Verificando...</span>
+  </div>
+</header>
+
+<!-- ── Main ───────────────────────────────────────────────────────────── -->
+<main>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('products')">📦 Productos</button>
+    <button class="tab-btn"        onclick="switchTab('users')">👥 Usuarios</button>
+  </div>
+
+  <!-- ── Panel Productos ─────────────────────────────────────────────── -->
+  <div class="tab-panel active" id="panel-products">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="search" id="searchProducts" placeholder="Buscar productos por nombre..." oninput="filterProducts()" />
+      </div>
+      <button class="btn btn-primary" onclick="openModal('product')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Nuevo producto
+      </button>
+      <button class="btn btn-ghost" onclick="loadProducts()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Recargar
+      </button>
+    </div>
+    <div id="productsContainer">
+      <div class="state-box"><div class="spinner"></div><p style="margin-top:1rem">Cargando productos...</p></div>
+    </div>
+  </div>
+
+  <!-- ── Panel Usuarios ──────────────────────────────────────────────── -->
+  <div class="tab-panel" id="panel-users">
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="search" id="searchUsers" placeholder="Buscar usuarios por nombre o email..." oninput="filterUsers()" />
+      </div>
+      <button class="btn btn-primary" onclick="openModal('user')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+        Nuevo usuario
+      </button>
+      <button class="btn btn-ghost" onclick="loadUsers()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        Recargar
+      </button>
+    </div>
+    <div id="usersContainer">
+      <div class="state-box"><div class="spinner"></div><p style="margin-top:1rem">Cargando usuarios...</p></div>
+    </div>
+  </div>
+</main>
+
+<!-- ── Modal crear producto ────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-product">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nuevo producto</h2>
+      <button class="modal-close" onclick="closeModal('product')">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="formProduct" onsubmit="submitProduct(event)">
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input type="text" id="pName" placeholder="Ej. Laptop Pro 15" required />
+        </div>
+        <div class="form-group">
+          <label>Descripción</label>
+          <input type="text" id="pDesc" placeholder="Descripción breve del producto" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Precio *</label>
+            <input type="number" id="pPrice" placeholder="0.00" step="0.01" min="0" required />
+          </div>
+          <div class="form-group">
+            <label>Stock</label>
+            <input type="number" id="pStock" placeholder="0" min="0" value="0" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Usuario (ID) *</label>
+          <select id="pUserId" required></select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;" id="btnSubmitProduct">
+          Crear producto
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal crear usuario ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nuevo usuario</h2>
+      <button class="modal-close" onclick="closeModal('user')">×</button>
+    </div>
+    <div class="modal-body">
+      <form id="formUser" onsubmit="submitUser(event)">
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input type="text" id="uName" placeholder="Ej. Ana García" required />
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="uEmail" placeholder="ana@ejemplo.com" required />
+        </div>
+        <div class="form-group">
+          <label>Rol</label>
+          <select id="uRole">
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;" id="btnSubmitUser">
+          Crear usuario
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ────────────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script>
+  /* ────────────────────────────────────────────────────────────────────
+   * CONFIGURACIÓN
+   * Cambia BASE_URL si tu API no corre en localhost:3000
+   * ──────────────────────────────────────────────────────────────────── */
+  const BASE_URL = 'http://localhost:3000/api';
+
+  /* ── Estado en memoria ─────────────────────────────────────────────── */
+  let allProducts = [];
+  let allUsers    = [];
+
+  /* ── Utilidades ────────────────────────────────────────────────────── */
+  function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show ${type}`;
+    setTimeout(() => { el.className = ''; }, 3200);
+  }
+
+  function fmt(dateStr) {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('es-MX', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+  }
+
+  function fmtPrice(n) {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n ?? 0);
+  }
+
+  /* ── Tabs ───────────────────────────────────────────────────────────── */
+  function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`panel-${name}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+  }
+
+  /* ── Healthcheck ───────────────────────────────────────────────────── */
+  async function checkHealth() {
+    const dot  = document.getElementById('healthDot');
+    const text = document.getElementById('healthText');
+    try {
+      const res  = await fetch(`${BASE_URL.replace('/api', '')}/health`);
+      const data = await res.json();
+      if (data.status === 'ok') {
+        dot.className  = 'health-dot ok';
+        text.textContent = `API OK · uptime ${data.uptime}`;
+      } else throw new Error();
+    } catch {
+      dot.className  = 'health-dot err';
+      text.textContent = 'API no disponible';
+    }
+  }
+
+  /* ── Render helpers ────────────────────────────────────────────────── */
+  function renderLoading(containerId) {
+    document.getElementById(containerId).innerHTML = `
+      <div class="state-box">
+        <div class="spinner"></div>
+        <p style="margin-top:1rem">Cargando...</p>
+      </div>`;
+  }
+
+  function renderError(containerId, msg) {
+    document.getElementById(containerId).innerHTML = `
+      <div class="error-box">
+        <span style="font-size:1.3rem">⚠️</span>
+        <div>
+          <strong>No se pudo cargar la información</strong><br/>
+          <small>${msg}</small>
+        </div>
+      </div>`;
+  }
+
+  function renderEmpty(containerId, label) {
+    document.getElementById(containerId).innerHTML = `
+      <div class="state-box">
+        <div class="icon">🗂️</div>
+        <h3>Sin ${label} aún</h3>
+        <p>Crea el primero con el botón de arriba.</p>
+      </div>`;
+  }
+
+  /* ── Productos ─────────────────────────────────────────────────────── */
+  async function loadProducts() {
+    renderLoading('productsContainer');
+    try {
+      const res  = await fetch(`${BASE_URL}/products`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      allProducts = Array.isArray(json) ? json : (json.data ?? []);
+      renderProducts(allProducts);
+    } catch (e) {
+      renderError('productsContainer', e.message);
+    }
+  }
+
+  function filterProducts() {
+    const q = document.getElementById('searchProducts').value.toLowerCase();
+    const filtered = allProducts.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.description ?? '').toLowerCase().includes(q)
+    );
+    renderProducts(filtered, q);
+  }
+
+  function renderProducts(list, query = '') {
+    const c = document.getElementById('productsContainer');
+    if (!list.length) { renderEmpty('productsContainer', 'productos'); return; }
+    c.innerHTML = `<div class="cards-grid">${list.map(p => productCard(p)).join('')}</div>`;
+  }
+
+  function productCard(p) {
+    const stockColor = p.stock > 10 ? '#22c55e' : p.stock > 0 ? '#f59e0b' : '#ef4444';
+    return `
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">${esc(p.name)}</span>
+          <span class="badge badge-id">#${p.id}</span>
+        </div>
+        <div class="card-body">
+          <p class="card-desc">${esc(p.description || 'Sin descripción')}</p>
+          <div class="card-meta">
+            <span class="badge badge-price">${fmtPrice(p.price)}</span>
+            <span class="badge badge-stock" style="background:#f0fdf4;color:${stockColor}">
+              Stock: ${p.stock ?? 0}
+            </span>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="card-owner">👤 ${esc(p.user_name ?? `User #${p.user_id}`)}</span>
+          <span style="font-size:.75rem;color:var(--muted)">${fmt(p.created_at)}</span>
+        </div>
+      </div>`;
+  }
+
+  /* ── Usuarios ──────────────────────────────────────────────────────── */
+  async function loadUsers() {
+    renderLoading('usersContainer');
+    try {
+      const res  = await fetch(`${BASE_URL}/users`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      allUsers = Array.isArray(json) ? json : (json.data ?? []);
+      renderUsers(allUsers);
+      populateUserSelect();
+    } catch (e) {
+      renderError('usersContainer', e.message);
+    }
+  }
+
+  function filterUsers() {
+    const q = document.getElementById('searchUsers').value.toLowerCase();
+    const filtered = allUsers.filter(u =>
+      u.name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q)
+    );
+    renderUsers(filtered);
+  }
+
+  function renderUsers(list) {
+    const c = document.getElementById('usersContainer');
+    if (!list.length) { renderEmpty('usersContainer', 'usuarios'); return; }
+    c.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Rol</th>
+              <th>Creado</th>
+              <th>Productos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.map(u => userRow(u)).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function userRow(u) {
+    return `
+      <tr>
+        <td><span class="badge badge-id">${u.id}</span></td>
+        <td class="td-name">${esc(u.name)}</td>
+        <td class="td-email">${esc(u.email)}</td>
+        <td><span class="badge badge-role">${esc(u.role)}</span></td>
+        <td class="td-date">${fmt(u.created_at)}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="loadUserProducts(${u.id}, '${esc(u.name)}')">
+            Ver productos
+          </button>
+        </td>
+      </tr>`;
+  }
+
+  async function loadUserProducts(userId, userName) {
+    try {
+      const res  = await fetch(`${BASE_URL}/users/${userId}/products`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const list = Array.isArray(json) ? json : (json.data ?? []);
+      const names = list.map(p => esc(p.name)).join(', ') || 'Sin productos';
+      toast(`${userName}: ${names}`, 'success');
+    } catch (e) {
+      toast(`Error: ${e.message}`, 'error');
+    }
+  }
+
+  /* ── Modal ─────────────────────────────────────────────────────────── */
+  function openModal(type) {
+    if (type === 'product') populateUserSelect();
+    document.getElementById(`modal-${type}`).classList.add('open');
+  }
+
+  function closeModal(type) {
+    document.getElementById(`modal-${type}`).classList.remove('open');
+    document.getElementById(`form${type.charAt(0).toUpperCase() + type.slice(1)}`).reset();
+  }
+
+  // Cerrar modal al hacer click fuera
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) {
+        const type = overlay.id.replace('modal-', '');
+        closeModal(type);
+      }
+    });
+  });
+
+  function populateUserSelect() {
+    const sel = document.getElementById('pUserId');
+    if (!sel) return;
+    sel.innerHTML = allUsers.length
+      ? allUsers.map(u => `<option value="${u.id}">${esc(u.name)} (ID: ${u.id})</option>`).join('')
+      : '<option value="">— Primero crea un usuario —</option>';
+  }
+
+  /* ── Submit: Crear producto ────────────────────────────────────────── */
+  async function submitProduct(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitProduct');
+    btn.textContent = 'Creando...';
+    btn.disabled = true;
+
+    const body = {
+      name:        document.getElementById('pName').value.trim(),
+      description: document.getElementById('pDesc').value.trim(),
+      price:       parseFloat(document.getElementById('pPrice').value),
+      stock:       parseInt(document.getElementById('pStock').value) || 0,
+      user_id:     parseInt(document.getElementById('pUserId').value),
+    };
+
+    try {
+      const res = await fetch(`${BASE_URL}/products`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? `HTTP ${res.status}`);
+      toast('Producto creado exitosamente ✓');
+      closeModal('product');
+      loadProducts();
+    } catch (err) {
+      toast(`Error: ${err.message}`, 'error');
+    } finally {
+      btn.textContent = 'Crear producto';
+      btn.disabled = false;
+    }
+  }
+
+  /* ── Submit: Crear usuario ─────────────────────────────────────────── */
+  async function submitUser(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitUser');
+    btn.textContent = 'Creando...';
+    btn.disabled = true;
+
+    const body = {
+      name:  document.getElementById('uName').value.trim(),
+      email: document.getElementById('uEmail').value.trim(),
+      role:  document.getElementById('uRole').value,
+    };
+
+    try {
+      const res = await fetch(`${BASE_URL}/users`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? `HTTP ${res.status}`);
+      toast('Usuario creado exitosamente ✓');
+      closeModal('user');
+      loadUsers();
+    } catch (err) {
+      toast(`Error: ${err.message}`, 'error');
+    } finally {
+      btn.textContent = 'Crear usuario';
+      btn.disabled = false;
+    }
+  }
+
+  /* ── Escape XSS ────────────────────────────────────────────────────── */
+  function esc(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* ── Init ──────────────────────────────────────────────────────────── */
+  checkHealth();
+  loadProducts();
+  loadUsers();
+</script>
+</body>
+</html>
